@@ -37,9 +37,6 @@ st.markdown("""
 # API KEYS
 TD_API_KEY = os.getenv("TD_API_KEY")
 NEWS_API_KEY = os.getenv("NEWS_API_KEY")
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
-
 
 # ----------- Data Fetching ------------
 def fetch_td_data(symbol, interval, outputsize="5000"):
@@ -133,19 +130,6 @@ def fetch_news_sentiment(symbol):
                 score = analyzer.polarity_scores(title)['compound']
                 scores.append(score)
     return sum(scores)/len(scores) if scores else 0.0
-
-# ----------- Telegram Integration ------------
-def send_telegram_message(message):
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {
-        "chat_id": TELEGRAM_CHAT_ID,
-        "text": message,
-        "parse_mode": "Markdown"
-    }
-    try:
-        requests.post(url, data=payload)
-    except Exception as e:
-        print("❌ Failed to send Telegram message:", e)
 
 # ----------- Train Model ------------
 def train_model(df, symbol, model_type):
@@ -246,25 +230,6 @@ if run:
 
         df_bt, win_rate = backtest(model, X, y, sl_pct=sl_pct, use_open_sl=(sl_mode != "% SL"), use_tp=use_tp, tp_pct=tp_pct, capital=capital)
 
-        message = f"""
-🚀 *AI Market Prediction Alert*
-
-🪙 *Symbol:* `{pair}`
-💰 *Live Price:* `${current_price:,.2f}`
-🎯 *Predicted 30-min Close:* `${prediction:,.2f}`
-🛑 *Stop Loss:* `${stop_loss:,.2f}`
-
-📊 *Signal:* *{signal}* {"🟢" if signal == "Strong Buy" else "🔴" if signal == "Strong Sell" else "⚪"}
-
-🔐 *Confidence:* `{confidence*100:.2f}%`
-🧠 *Sentiment Score:* `{sentiment:.2f}`
-📏 *MAE:* `${mae:.2f}`
-
-⏱ *Generated at:* `{pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}`
-"""
-
-        send_telegram_message(message)
-
     col1, col2 = st.columns(2)
 
     with col1:
@@ -285,6 +250,6 @@ if run:
         with st.expander("📋 Backtest Log"):
             st.dataframe(df_bt[['Entry', 'NextClose', 'Direction', 'Pnl']].tail(20))
 
-    st.success("Analysis complete ✅")
+    st.success("✅ Analysis complete. Results updated below.")
 else:
     st.info("Configure settings and click Retrain & Predict to begin.")
