@@ -38,6 +38,7 @@ st.markdown("""
 TD_API_KEY = os.getenv("TD_API_KEY")
 NEWS_API_KEY = os.getenv("NEWS_API_KEY")
 
+
 # ----------- Data Fetching ------------
 def fetch_td_data(symbol, interval, outputsize="5000"):
     url = f"https://api.twelvedata.com/time_series"
@@ -117,19 +118,38 @@ def fetch_news_sentiment(symbol):
         "EUR/USD": "euro+OR+eur+OR+forex"
     }
     query = keywords.get(symbol.upper(), "finance")
-    url = f"https://newsdata.io/api/1/news?apikey={NEWS_API_KEY}&q={query}&language=en&category=business"
-    r = requests.get(url)
-    data = r.json()
 
+    api_keys = os.getenv("NEWS_API_KEYS", "").split(",")
     analyzer = SentimentIntensityAnalyzer()
     scores = []
-    if "results" in data:
-        for article in data['results']:
-            title = article.get("title", "")
-            if title:
-                score = analyzer.polarity_scores(title)['compound']
-                scores.append(score)
-    return sum(scores)/len(scores) if scores else 0.0
+
+    for key in api_keys:
+        key = key.strip()
+        url = f"https://newsdata.io/api/1/news?apikey={key}&q={query}&language=en&category=business"
+        try:
+            r = requests.get(url)
+            data = r.json()
+
+            if isinstance(data, dict) and "results" in data:
+                for article in data["results"]:
+                    if isinstance(article, dict):
+                        title = article.get("title", "")
+                        if title:
+                            score = analyzer.polarity_scores(title)['compound']
+                            scores.append(score)
+                break  # success, stop checking keys
+
+            if data.get("status") != "success":
+                st.warning(f"⚠️ News API key ending in {key[-4:]} failed or exhausted. Trying next...")
+                continue
+
+        except Exception as e:
+            st.warning(f"⚠️ Error using News API key ending in {key[-4:]}: {e}")
+            continue
+
+    return sum(scores) / len(scores) if scores else 0.0
+
+
 
 # ----------- Train Model ------------
 def train_model(df, symbol, model_type):
